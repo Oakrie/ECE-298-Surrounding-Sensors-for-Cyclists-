@@ -35,12 +35,12 @@ void init_timer(){
     timer_param_0.timerClear = TIMER_A_DO_CLEAR;
     Timer_A_initContinuousMode(TIMER_A0_BASE, &timer_param_0);
 
-    Timer_A_initContinuousModeParam timer_param_1;
-    timer_param_1.clockSource = TIMER_A_CLOCKSOURCE_SMCLK;
-    timer_param_1.clockSourceDivider = TIMER_A_CLOCKSOURCE_DIVIDER_1;
-    timer_param_1.timerInterruptEnable_TAIE = TIMER_A_TAIE_INTERRUPT_DISABLE;
-    timer_param_1.timerClear = TIMER_A_DO_CLEAR;
-    Timer_A_initContinuousMode(TIMER_A1_BASE, &timer_param_1);
+//    Timer_A_initContinuousModeParam timer_param_1;
+//    timer_param_1.clockSource = TIMER_A_CLOCKSOURCE_SMCLK;
+//    timer_param_1.clockSourceDivider = TIMER_A_CLOCKSOURCE_DIVIDER_1;
+//    timer_param_1.timerInterruptEnable_TAIE = TIMER_A_TAIE_INTERRUPT_DISABLE;
+//    timer_param_1.timerClear = TIMER_A_DO_CLEAR;
+//    Timer_A_initContinuousMode(TIMER_A1_BASE, &timer_param_1);
 }
 
 void Init_GPIO(void){
@@ -62,29 +62,25 @@ void Init_GPIO(void){
     GPIO_setAsOutputPin(KEYPAD_ROW3_PORT, KEYPAD_ROW3_PIN); //Set ROW3 as output
     GPIO_setAsOutputPin(KEYPAD_ROW4_PORT, KEYPAD_ROW4_PIN); //Set ROW4 as output
 
+    GPIO_setAsInputPin(USB_ECHO_PORT, USB_ECHO_PIN); //Set COL2 as input
+    GPIO_setAsInputPin(USF_ECHO_PORT, USF_ECHO_PIN); //Set COL3 as input
+    GPIO_setAsOutputPin(USB_TRIG_PORT, USB_TRIG_PIN); //Set ROW1 as output
+    GPIO_setAsOutputPin(USF_TRIG_PORT, USF_TRIG_PIN); //Set ROW2 as output
+
 }
 
 void displayIntLCD(unsigned int numDisp){
-    char charDisp[6];
+    char charDisp[3];
     charDisp[0] = numDisp%10;
-//    numDisp /= 10;
-//    charDisp[1] = numDisp%10;
-//    numDisp /= 10;
-//    charDisp[2] = numDisp%10;
-//    numDisp /= 10;
-//    charDisp[3] = numDisp%10;
-//    numDisp /= 10;
-//    charDisp[4] = numDisp%10;
-//    numDisp /= 10;
-//    charDisp[5] = numDisp%10;
-//    numDisp /= 10;
+    numDisp /= 10;
+    charDisp[1] = numDisp%10;
+    numDisp /= 10;
+    charDisp[2] = numDisp%10;
+    numDisp /= 10;
 
     showChar('0'+(charDisp[0]), pos6);
-//    showChar('0'+(charDisp[1]), pos5);
-//    showChar('0'+(charDisp[2]), pos4);
-//    showChar('0'+(charDisp[3]), pos3);
-//    showChar('0'+(charDisp[4]), pos2);
-//    showChar('0'+(charDisp[5]), pos1);
+    showChar('0'+(charDisp[1]), pos5);
+    showChar('0'+(charDisp[2]), pos4);
 
 }
 
@@ -92,33 +88,55 @@ void pulse_output_back(void){
     unsigned int test=0;
     test = 98;
 
-    GPIO_setOutputHighOnPin(USB_TRIG_PIN, USB_TRIG_PORT);
-    GPIO_setOutputLowOnPin(USB_TRIG_PIN, USB_TRIG_PORT);
-    test = get_distance(TIMER_A0_BASE, USB_ECHO_PORT, USB_ECHO_PIN);
+    GPIO_setOutputHighOnPin(USB_TRIG_PORT, USB_TRIG_PIN);
+    GPIO_setOutputLowOnPin(USB_TRIG_PORT, USB_TRIG_PIN);
+
+    Timer_A_clear(TIMER_A0_BASE);
+    while(GPIO_getInputPinValue(USB_ECHO_PORT, USB_ECHO_PIN) == 0 ){
+        ;
+    }
+    Timer_A_startCounter(TIMER_A0_BASE, TIMER_A_CONTINUOUS_MODE);
+    while(GPIO_getInputPinValue(USB_ECHO_PORT, USB_ECHO_PIN) != 0 ){
+        ;
+    }
+    Timer_A_stop(TIMER_A0_BASE);
+    test =  Timer_A_getCounterValue(TIMER_A0_BASE)/58;
 
     displayIntLCD(test);
 
-    __delay_cycles(1600);
+    __delay_cycles(16000 );
 }
 
 void pulse_output_front(void){
     unsigned int test=0;
     test = 98;
 
-    GPIO_setOutputHighOnPin(USF_TRIG_PIN, USF_TRIG_PORT);
-    GPIO_setOutputLowOnPin(USF_TRIG_PIN, USF_TRIG_PORT);
-    test = get_distance(TIMER_A1_BASE, USF_ECHO_PORT, USF_ECHO_PIN);
+    GPIO_setOutputHighOnPin(USF_TRIG_PORT, USF_TRIG_PIN);
+    GPIO_setOutputLowOnPin(USF_TRIG_PORT, USF_TRIG_PIN);
+
+    Timer_A_clear(TIMER_A0_BASE);
+    while(GPIO_getInputPinValue(USF_ECHO_PORT, USF_ECHO_PIN) == 0 ){
+        ;
+    }
+    Timer_A_startCounter(TIMER_A0_BASE, TIMER_A_CONTINUOUS_MODE);
+    while(GPIO_getInputPinValue(USF_ECHO_PORT, USF_ECHO_PIN) != 0 ){
+        ;
+    }
+    Timer_A_stop(TIMER_A0_BASE);
+    test =  Timer_A_getCounterValue(TIMER_A0_BASE)/58;
 
     displayIntLCD(test);
 
-    __delay_cycles(1600);
+    __delay_cycles(16000);
 }
 
 unsigned int get_distance(unsigned int timer, unsigned int port, unsigned int pin){
     Timer_A_clear(timer);
+    //displayScrollText("PLZ");
     while(GPIO_getInputPinValue(port, pin) == 0 ){
         ;
     }
+    //displayScrollText("HELL");
     Timer_A_startCounter(timer, TIMER_A_CONTINUOUS_MODE);
     while(GPIO_getInputPinValue(port, pin) != 0 ){
         ;
@@ -394,14 +412,15 @@ int main(void)
     init_interrupt();
     PMM_unlockLPM5();
 
-    setup_back(rear_vals);
-    setup_front(front_vals);
+    //setup_back(rear_vals);
+    //setup_front(front_vals);
 
     __enable_interrupt();
     GPIO_clearInterrupt(PB1_PORT, PB1_PIN);
     GPIO_clearInterrupt(PB2_PORT, PB2_PIN);
 
     mode = USER_MODE;
+    clearLCD();
 
     while(1){
         while(mode == SETUP_MODE){
@@ -410,7 +429,9 @@ int main(void)
             setup_interrupted = 0;
         }
         while(mode == USER_MODE){
-            displayScrollText("USER");
+            //displayScrollText("USER");
+            //pulse_output_back();
+            pulse_output_front();
         }
 
     }
